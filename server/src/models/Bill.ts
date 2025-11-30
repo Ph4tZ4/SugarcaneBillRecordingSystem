@@ -11,12 +11,14 @@ export interface IBill extends Document {
     totalAmount: number;
     netAmount: number;
     quotaNumber?: string;
+    licensePlate?: string;
 }
 
 const BillSchema: Schema = new Schema({
     billNumber: { type: String, required: true, unique: true },
     quotaNumber: { type: String, required: false },
     ownerName: { type: String, required: true },
+    licensePlate: { type: String, required: false },
     date: { type: Date, required: true },
     sugarcaneType: { type: Number, required: true, enum: [1, 2, 3] },
     weight: { type: Number, required: true },

@@ -22,9 +22,10 @@ interface Bill {
 
 interface BillListProps {
     isSharedView?: boolean;
+    refreshTrigger?: number;
 }
 
-const BillList: React.FC<BillListProps> = ({ isSharedView = false }) => {
+const BillList: React.FC<BillListProps> = ({ isSharedView = false, refreshTrigger = 0 }) => {
     const [bills, setBills] = useState<Bill[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -54,7 +55,7 @@ const BillList: React.FC<BillListProps> = ({ isSharedView = false }) => {
         };
 
         fetchBills();
-    }, []);
+    }, [refreshTrigger]);
 
     // Filter Logic
     const filteredBills = bills.filter(bill => {
