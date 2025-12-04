@@ -199,7 +199,7 @@ const Stats: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigger = 0 }) =>
                                     paddingAngle={5}
                                     dataKey="value"
                                 >
-                                    {stats.typeData.map((entry, index) => (
+                                    {stats.typeData.map((_, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
