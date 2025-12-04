@@ -629,6 +629,21 @@ app.get('/api/share/:token', async (req, res) => {
 
 
 
+// --- Serve Static Files (Frontend) ---
+const clientBuildPath = path.join(__dirname, '../../client/dist');
+if (fs.existsSync(clientBuildPath)) {
+    app.use(express.static(clientBuildPath));
+    app.get('*', (req, res) => {
+        // Don't intercept API routes
+        if (req.path.startsWith('/api')) {
+            // If it's an API route that wasn't caught by previous handlers, it's a 404
+            return res.status(404).json({ message: 'API endpoint not found' });
+        }
+        res.sendFile(path.join(clientBuildPath, 'index.html'));
+    });
+    console.log(`Serving static files from ${clientBuildPath}`);
+}
+
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
