@@ -633,7 +633,7 @@ app.get('/api/share/:token', async (req, res) => {
 const clientBuildPath = path.join(__dirname, '../../client/dist');
 if (fs.existsSync(clientBuildPath)) {
     app.use(express.static(clientBuildPath));
-    app.get('*', (req, res) => {
+    app.get(/(.*)/, (req, res) => {
         // Don't intercept API routes
         if (req.path.startsWith('/api')) {
             // If it's an API route that wasn't caught by previous handlers, it's a 404
