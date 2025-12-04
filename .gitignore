@@ -1,5 +1,41 @@
+# Dependencies
 node_modules
+.pnp
+.pnp.js
+
+# Testing
+coverage
+.nyc_output
+
+# Production
+dist
+build
+out
+
+# Misc
 .DS_Store
-.vscode
-.idea
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDEs and Editors
+.idea
+.vscode
+*.swp
+*.swo
+*.tgz
+
+# OS Generated
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# PM2
+.pm2
+dump.pm2
