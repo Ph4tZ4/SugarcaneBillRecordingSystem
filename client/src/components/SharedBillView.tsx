@@ -12,7 +12,7 @@ const SharedBillView: React.FC = () => {
     useEffect(() => {
         const validateToken = async () => {
             try {
-                await axios.get(`http://localhost:5001/api/share/${token}`);
+                await axios.get(`/api/share/${token}`);
                 setIsValid(true);
             } catch (err) {
                 setIsValid(false);

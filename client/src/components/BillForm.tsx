@@ -50,8 +50,8 @@ const BillForm: React.FC<{ onBillRecorded: () => void }> = ({ onBillRecorded }) 
         const fetchData = async () => {
             try {
                 const [settingsRes, farmersRes] = await Promise.all([
-                    axios.get('http://localhost:5001/api/settings'),
-                    axios.get('http://localhost:5001/api/farmers')
+                    axios.get('/api/settings'),
+                    axios.get('/api/farmers')
                 ]);
 
                 if (settingsRes.data.quotas) {
@@ -76,7 +76,7 @@ const BillForm: React.FC<{ onBillRecorded: () => void }> = ({ onBillRecorded }) 
 
             setIsChecking(true);
             try {
-                const response = await axios.get(`http://localhost:5001/api/bills/check-duplicate/${formData.billNumber}`);
+                const response = await axios.get(`/api/bills/check-duplicate/${formData.billNumber}`);
                 setIsDuplicate(response.data.exists);
             } catch (error) {
                 console.error('Error checking duplicate:', error);
@@ -95,7 +95,7 @@ const BillForm: React.FC<{ onBillRecorded: () => void }> = ({ onBillRecorded }) 
 
         const fetchPrice = async () => {
             try {
-                const response = await axios.get(`http://localhost:5001/api/price-check?date=${formData.date}`);
+                const response = await axios.get(`/api/price-check?date=${formData.date}`);
                 const config = response.data;
 
                 let price = 0;
@@ -157,7 +157,7 @@ const BillForm: React.FC<{ onBillRecorded: () => void }> = ({ onBillRecorded }) 
                 manualPrice: isManualPrice ? Number(formData.price) : undefined,
             };
 
-            await axios.post('http://localhost:5001/api/bills', payload);
+            await axios.post('/api/bills', payload);
             toast.success('บันทึกข้อมูลสำเร็จ!');
             onBillRecorded();
 

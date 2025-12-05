@@ -28,7 +28,7 @@ const ActivityLogs: React.FC = () => {
     useEffect(() => {
         const fetchLogs = async () => {
             try {
-                const response = await axios.get('http://localhost:5001/api/activity-logs');
+                const response = await axios.get('/api/activity-logs');
                 setLogs(response.data);
             } catch (error) {
                 console.error('Error fetching logs:', error);

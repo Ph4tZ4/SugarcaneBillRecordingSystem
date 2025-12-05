@@ -23,7 +23,7 @@ const UserManagement: React.FC = () => {
 
     const fetchUsers = async () => {
         try {
-            const response = await axios.get('http://localhost:5001/api/users');
+            const response = await axios.get('/api/users');
             setUsers(response.data);
         } catch (error) {
             console.error('Error fetching users:', error);
@@ -40,7 +40,7 @@ const UserManagement: React.FC = () => {
     const handleAddUser = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await axios.post('http://localhost:5001/api/users', {
+            await axios.post('/api/users', {
                 username: newUsername,
                 password: newPassword,
                 role: newRole
@@ -61,7 +61,7 @@ const UserManagement: React.FC = () => {
         if (!window.confirm(`คุณต้องการลบผู้ใช้ ${username} ใช่หรือไม่?`)) return;
 
         try {
-            await axios.delete(`http://localhost:5001/api/users/${userId}`);
+            await axios.delete(`/api/users/${userId}`);
             toast.success('ลบผู้ใช้งานสำเร็จ');
             fetchUsers();
         } catch (error) {

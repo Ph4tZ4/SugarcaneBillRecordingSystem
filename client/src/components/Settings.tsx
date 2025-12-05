@@ -32,8 +32,8 @@ const Settings: React.FC = () => {
     const fetchData = async () => {
         try {
             const [settingsRes, pricesRes] = await Promise.all([
-                axios.get('http://localhost:5001/api/settings'),
-                axios.get('http://localhost:5001/api/prices')
+                axios.get('/api/settings'),
+                axios.get('/api/prices')
             ]);
 
             setSettings({
@@ -70,7 +70,7 @@ const Settings: React.FC = () => {
     const handleSavePrice = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await axios.post('http://localhost:5001/api/prices', newPrice);
+            await axios.post('/api/prices', newPrice);
             toast.success('บันทึกราคาเรียบร้อยแล้ว');
             fetchData();
         } catch (error) {
@@ -82,7 +82,7 @@ const Settings: React.FC = () => {
     const handleDeletePrice = async (id: string) => {
         if (!window.confirm('คุณแน่ใจหรือไม่ที่จะลบราคานี้?')) return;
         try {
-            await axios.delete(`http://localhost:5001/api/prices/${id}`);
+            await axios.delete(`/api/prices/${id}`);
             toast.success('ลบราคาเรียบร้อยแล้ว');
             fetchData();
         } catch (error) {
@@ -106,7 +106,7 @@ const Settings: React.FC = () => {
 
     const updateQuotas = async (quotas: string[]) => {
         try {
-            await axios.put('http://localhost:5001/api/settings', { quotas });
+            await axios.put('/api/settings', { quotas });
             setSettings(prev => ({ ...prev, quotas }));
             toast.success('อัปเดตโควตาเรียบร้อยแล้ว');
         } catch (error) {
