@@ -41,7 +41,7 @@ const Stats: React.FC<{ refreshTrigger?: number }> = ({ refreshTrigger = 0 }) =>
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const response = await axios.get<Bill[]>('http://localhost:5001/api/bills');
+                const response = await axios.get<Bill[]>('/api/bills');
                 const bills = response.data;
 
                 const totalWeight = bills.reduce((sum, bill) => sum + bill.weight, 0);

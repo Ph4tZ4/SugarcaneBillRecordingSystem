@@ -26,7 +26,7 @@ const FarmerList: React.FC = () => {
 
     const fetchFarmers = async () => {
         try {
-            const response = await axios.get('http://localhost:5001/api/farmers');
+            const response = await axios.get('/api/farmers');
             setFarmers(response.data);
             setLoading(false);
         } catch (error) {
@@ -62,9 +62,9 @@ const FarmerList: React.FC = () => {
         e.preventDefault();
         try {
             if (editingFarmer) {
-                await axios.put(`http://localhost:5001/api/farmers/${editingFarmer._id}`, formData);
+                await axios.put(`/api/farmers/${editingFarmer._id}`, formData);
             } else {
-                await axios.post('http://localhost:5001/api/farmers', formData);
+                await axios.post('/api/farmers', formData);
             }
             fetchFarmers();
             handleCloseModal();
@@ -77,7 +77,7 @@ const FarmerList: React.FC = () => {
     const handleDelete = async (id: string) => {
         if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลชาวไร่นี้?')) {
             try {
-                await axios.delete(`http://localhost:5001/api/farmers/${id}`);
+                await axios.delete(`/api/farmers/${id}`);
                 fetchFarmers();
             } catch (error) {
                 console.error('Error deleting farmer:', error);

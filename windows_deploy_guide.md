@@ -72,6 +72,9 @@
 
 ## 5. การแก้ไขปัญหาเบื้องต้น (Troubleshooting)
 
+*   **เจอปัญหา SecurityError / PSSecurityException (สีแดงๆ)**:
+    *   เกิดจาก Windows บล็อกการรัน Script
+    *   วิธีแก้: เปิด PowerShell แล้วพิมพ์คำสั่ง: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`
 *   **เข้าเว็บไม่ได้**:
     *   ตรวจสอบว่า MongoDB รันอยู่หรือไม่ (เช็คใน Services ของ Windows)
     *   ลองพิมพ์ `pm2 logs` เพื่อดูว่ามี Error อะไรแจ้งเตือนหรือไม่

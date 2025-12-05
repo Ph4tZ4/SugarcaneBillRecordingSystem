@@ -45,7 +45,7 @@ const BillList: React.FC<BillListProps> = ({ isSharedView = false, refreshTrigge
     useEffect(() => {
         const fetchBills = async () => {
             try {
-                const response = await axios.get<Bill[]>('http://localhost:5001/api/bills');
+                const response = await axios.get<Bill[]>('/api/bills');
                 setBills(response.data);
             } catch (error) {
                 console.error('Error fetching bills:', error);
@@ -226,7 +226,7 @@ const BillList: React.FC<BillListProps> = ({ isSharedView = false, refreshTrigge
     // Share Handlers
     const handleGenerateLink = async () => {
         try {
-            const response = await axios.post('http://localhost:5001/api/share', { duration: shareDuration });
+            const response = await axios.post('/api/share', { duration: shareDuration });
             const { token } = response.data;
             const link = `${window.location.origin}/share/${token}`;
             setGeneratedLink(link);
