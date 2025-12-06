@@ -54,3 +54,24 @@ This project is a web application for recording and managing sugarcane bills. It
 - Automatic price calculation based on date and sugarcane type.
 - Manage price configurations.
 - Export bill data to Excel.
+
+## Deployment Configuration
+
+### 1. Server (Render / Production)
+Set the following environment variables on your server (e.g., Render):
+
+- `PORT`: (Optional) Port to run the server (Render sets this automatically).
+- `MONGODB_URI`: Connection string for your MongoDB (e.g., MongoDB Atlas).
+- `JWT_SECRET`: Secret key for JWT (use a strong random string).
+- `ALLOWED_ORIGINS`: Comma-separated list of allowed frontend URLs.
+  - Example: `https://sugarcane-client.vercel.app`
+
+### 2. Client (Vercel / Production)
+Set the following environment variable in Vercel:
+
+- `VITE_API_URL`: The full URL of your deployed backend server.
+  - Example: `https://sugarcane-server.onrender.com`
+
+### Local Development
+- **Server**: Create a `.env` file in the `server` folder (or rely on defaults).
+- **Client**: No config needed. It uses `vite.config.ts` proxy to forward `/api` requests to `http://localhost:5001`.

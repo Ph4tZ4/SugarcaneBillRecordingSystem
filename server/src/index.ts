@@ -21,14 +21,30 @@ import { ShareLink } from './models/ShareLink';
 dotenv.config();
 
 const app = express();
-const PORT = 5001; // Changed from process.env.PORT || 5000 to 5001 as per instruction
-const JWT_SECRET = 'sugarcane-secret-key-change-in-prod'; // In production, use env var
+const PORT = process.env.PORT || 5001;
+const JWT_SECRET = process.env.JWT_SECRET || 'sugarcane-secret-key-change-in-prod';
 
-app.use(cors());
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : ['http://localhost:5173', 'http://localhost:3000'];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true
+}));
 app.use(bodyParser.json()); // Replaced express.json() with bodyParser.json() as per instruction
 
 // Connect to MongoDB
-const MONGODB_URI = 'mongodb://localhost:27017/sugarcane-db'; // Changed from process.env.MONGODB_URI to hardcoded as per instruction
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/sugarcane-db';
 
 mongoose.connect(MONGODB_URI)
     .then(() => console.log('MongoDB Connected')) // Changed log message
