@@ -1,7 +1,9 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Sprout, LayoutDashboard, ScrollText, Users, History, LogOut, Settings, UserCog } from 'lucide-react';
+import { LayoutDashboard, ScrollText, Users, History, LogOut, Settings, UserCog } from 'lucide-react';
+
 import { useAuth } from '../contexts/AuthContext';
+import logo from '../assets/logo.png';
 
 const Header: React.FC = () => {
     const { user, logout } = useAuth();
@@ -11,8 +13,8 @@ const Header: React.FC = () => {
             <div className="container mx-auto px-4">
                 <div className="flex items-center justify-between h-16">
                     <div className="flex items-center gap-2">
-                        <div className="bg-green-600 p-2 rounded-lg">
-                            <Sprout className="text-white" size={24} />
+                        <div className="w-10 h-10 rounded-lg overflow-hidden">
+                            <img src={logo} alt="Sugarcane Logo" className="w-full h-full object-cover" />
                         </div>
                         <div>
                             <h1 className="text-xl font-bold text-gray-800 leading-none">Sugarcane</h1>
