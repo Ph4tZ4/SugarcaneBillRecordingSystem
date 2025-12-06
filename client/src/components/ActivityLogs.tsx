@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { History, Search, Calendar, Filter, X } from 'lucide-react';
+import { History, Search, Calendar, Filter, X, Download, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useAuth } from '../contexts/AuthContext';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 interface ActivityLog {
     _id: string;
@@ -12,6 +16,7 @@ interface ActivityLog {
 }
 
 const ActivityLogs: React.FC = () => {
+    const { user: currentUser } = useAuth();
     const [logs, setLogs] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -25,18 +30,19 @@ const ActivityLogs: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
-    useEffect(() => {
-        const fetchLogs = async () => {
-            try {
-                const response = await axios.get('/api/activity-logs');
-                setLogs(response.data);
-            } catch (error) {
-                console.error('Error fetching logs:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
+    const fetchLogs = async () => {
+        try {
+            const response = await axios.get('/api/activity-logs');
+            setLogs(response.data);
+        } catch (error) {
+            console.error('Error fetching logs:', error);
+            toast.error('ไม่สามารถดึงข้อมูลบันทึกกิจกรรมได้');
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         fetchLogs();
     }, []);
 
@@ -44,6 +50,66 @@ const ActivityLogs: React.FC = () => {
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, startDate, endDate, roleFilter]);
+
+    // Back Up Logic
+    const handleBackup = async () => {
+        try {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+            // 1. Export JSON
+            const jsonContent = JSON.stringify(logs, null, 2);
+            const jsonBlob = new Blob([jsonContent], { type: 'application/json' });
+            saveAs(jsonBlob, `activity_logs_backup_${timestamp}.json`);
+
+            // 2. Export XLSX
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Activity Logs');
+
+            worksheet.columns = [
+                { header: 'Time', key: 'timestamp', width: 25 },
+                { header: 'Username', key: 'username', width: 20 },
+                { header: 'Role', key: 'role', width: 15 },
+                { header: 'Action', key: 'action', width: 25 },
+                { header: 'Details', key: 'details', width: 50 },
+            ];
+
+            logs.forEach(log => {
+                worksheet.addRow({
+                    timestamp: new Date(log.timestamp).toLocaleString('th-TH'),
+                    username: log.username,
+                    role: log.role,
+                    action: log.action,
+                    details: log.details || '-'
+                });
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const excelBlob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            saveAs(excelBlob, `activity_logs_backup_${timestamp}.xlsx`);
+
+            toast.success('ดาวน์โหลดไฟล์ Backup สำเร็จ (JSON และ Excel)');
+
+        } catch (error) {
+            console.error('Backup error:', error);
+            toast.error('เกิดข้อผิดพลาดในการ Backup ข้อมูล');
+        }
+    };
+
+    // Clear Old Logs Logic
+    const handleClearLogs = async () => {
+        if (!window.confirm('คุณต้องการลบบันทึกกิจกรรมที่เก่ากว่า 3 วันหรือไม่? \n\nการกระทำนี้ไม่สามารถย้อนกลับได้!')) {
+            return;
+        }
+
+        try {
+            const response = await axios.delete('/api/activity-logs/prune');
+            toast.success(`ลบรายการเก่าเรียบร้อย (${response.data.deletedCount} รายการ)`);
+            fetchLogs(); // Refresh list
+        } catch (error: any) {
+            console.error('Error pruning logs:', error);
+            toast.error('ไม่สามารถลบรายการได้');
+        }
+    };
 
     // Filter Logic
     const filteredLogs = logs.filter(log => {
@@ -140,13 +206,37 @@ const ActivityLogs: React.FC = () => {
 
     return (
         <div className="max-w-6xl mx-auto">
-            <div className="flex items-center gap-3 mb-8">
-                <div className="p-3 bg-blue-100 rounded-xl">
-                    <History className="text-blue-600" size={24} />
+            <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                    <div className="p-3 bg-blue-100 rounded-xl">
+                        <History className="text-blue-600" size={24} />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-800">บันทึกกิจกรรม</h1>
+                        <p className="text-gray-500">ประวัติการใช้งานระบบของผู้ดูแล</p>
+                    </div>
                 </div>
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-800">บันทึกกิจกรรม</h1>
-                    <p className="text-gray-500">ประวัติการใช้งานระบบของผู้ดูแล</p>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleBackup}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+                        title="ดาวน์โหลด JSON และ Excel"
+                    >
+                        <Download size={20} />
+                        <span>Backup Log (JSON + XLSX)</span>
+                    </button>
+                    {currentUser?.role === 'root' && (
+                        <button
+                            onClick={handleClearLogs}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors shadow-sm border border-red-200"
+                            title="ลบข้อมูลที่เก่ากว่า 3 วัน"
+                        >
+                            <Trash2 size={20} />
+                            <span>เคลียร์ประวัติเก่า (3 วัน+)</span>
+                        </button>
+                    )}
                 </div>
             </div>
 

@@ -28,6 +28,9 @@ const App: React.FC = () => {
         <Toaster
           position="top-center"
           reverseOrder={false}
+          containerStyle={{
+            top: 60,
+          }}
           toastOptions={{
             style: {
               fontSize: '1.1rem',

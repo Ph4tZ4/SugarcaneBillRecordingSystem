@@ -256,6 +256,51 @@ app.post('/api/users', authenticateToken, authorizeRole(['root']), async (req, r
     }
 });
 
+// Update user (Root only - with Super Root check)
+app.put('/api/users/:id', authenticateToken, authorizeRole(['root']), async (req, res) => {
+    try {
+        const { username, password, role } = req.body;
+        const targetUser = await User.findById(req.params.id);
+
+        if (!targetUser) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Super Root Protection: Only 'Phat' can edit other 'root' users
+        if (targetUser.role === 'root' && req.user.username !== 'Phat') {
+            return res.status(403).json({ message: 'Only Super Root can edit other root users' });
+        }
+
+        // prevent changing Phat's username or role
+        if (targetUser.username === 'Phat') {
+            // If trying to change Phat's critical info
+            if (username !== 'Phat' || role !== 'root') {
+                return res.status(403).json({ message: 'Cannot modify Super Root core attributes' });
+            }
+        }
+
+        // Update fields
+        targetUser.username = username || targetUser.username;
+        targetUser.role = role || targetUser.role;
+
+        if (password) {
+            const salt = await bcrypt.genSalt(10);
+            targetUser.password = await bcrypt.hash(password, salt);
+        }
+
+        await targetUser.save();
+        await logActivity(req, 'UPDATE_USER', `Updated user ${targetUser.username}`);
+
+        res.json({ message: 'User updated successfully', user: { username: targetUser.username, role: targetUser.role } });
+    } catch (error: any) {
+        if (error.code === 11000) {
+            return res.status(400).json({ message: 'Username already exists' });
+        }
+        res.status(500).json({ message: 'Error updating user', error });
+    }
+});
+
+
 app.delete('/api/users/:id', authenticateToken, authorizeRole(['root']), async (req, res) => {
     try {
         const userToDelete = await User.findById(req.params.id);
@@ -263,14 +308,24 @@ app.delete('/api/users/:id', authenticateToken, authorizeRole(['root']), async (
             return res.status(404).json({ message: 'User not found' });
         }
 
-        if (userToDelete.username === 'root') {
-            return res.status(400).json({ message: 'Cannot delete root user' });
+        // Super Root Protection: Only 'Phat' can delete other 'root' users
+        if (userToDelete.role === 'root' && req.user.username !== 'Phat') {
+            return res.status(403).json({ message: 'Only Super Root can delete other root users' });
+        }
+
+        // Prevent deleting Phat or Self
+        if (userToDelete.username === 'Phat') {
+            return res.status(400).json({ message: 'Cannot delete Super Root' });
+        }
+        if (userToDelete._id.toString() === req.user.id) {
+            return res.status(400).json({ message: 'Cannot delete yourself' });
         }
 
         await User.findByIdAndDelete(req.params.id);
         await logActivity(req, 'DELETE_USER', `Deleted user ${userToDelete.username}`);
 
         res.json({ message: 'User deleted successfully' });
+
     } catch (error) {
         res.status(500).json({ message: 'Error deleting user', error });
     }
@@ -284,6 +339,24 @@ app.get('/api/activity-logs', authenticateToken, authorizeRole(['root']), async 
         res.json(logs);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching logs', error });
+    }
+});
+
+// Delete old logs (Root only) - older than 3 days
+app.delete('/api/activity-logs/prune', authenticateToken, authorizeRole(['root']), async (req, res) => {
+    try {
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+        const result = await ActivityLog.deleteMany({
+            timestamp: { $lt: threeDaysAgo }
+        });
+
+        await logActivity(req, 'PRUNE_LOGS', `Cleared ${result.deletedCount} logs older than ${threeDaysAgo.toLocaleDateString()}`);
+
+        res.json({ message: `Logs pruned successfully`, deletedCount: result.deletedCount });
+    } catch (error) {
+        res.status(500).json({ message: 'Error pruning logs', error });
     }
 });
 
@@ -560,6 +633,7 @@ app.post('/api/bills', authenticateToken, authorizeRole(['admin', 'root']), asyn
     }
 });
 
+
 app.get('/api/bills/check-duplicate/:billNumber', authenticateToken, authorizeRole(['admin', 'root']), async (req, res) => {
     try {
         const { billNumber } = req.params;
@@ -569,6 +643,76 @@ app.get('/api/bills/check-duplicate/:billNumber', authenticateToken, authorizeRo
         res.status(500).json({ message: 'Error checking duplicate bill', error });
     }
 });
+
+app.put('/api/bills/:id', authenticateToken, authorizeRole(['root']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { ownerName, quotaNumber, sugarcaneType, weight, fuelCost, date, manualPrice, licensePlate } = req.body;
+        const billDate = new Date(date);
+
+        const bill = await Bill.findById(id);
+        if (!bill) {
+            return res.status(404).json({ message: 'Bill not found' });
+        }
+
+        let pricePerUnit = bill.pricePerUnit;
+
+        // Recalculate price if type or date changed, OR if manual price is provided
+        if (manualPrice !== undefined && manualPrice !== null) {
+            pricePerUnit = Number(manualPrice);
+        } else if (
+            sugarcaneType !== bill.sugarcaneType ||
+            billDate.getTime() !== new Date(bill.date).getTime()
+        ) {
+            // Find applicable price config
+            let priceConfig = await PriceConfig.findOne({ effectiveDate: { $lte: billDate } }).sort({ effectiveDate: -1 });
+
+            // Fallback
+            if (!priceConfig) {
+                const legacySetting = await Setting.findOne();
+                priceConfig = {
+                    freshPrice: legacySetting?.freshPrice || 1200,
+                    burntPrice: legacySetting?.burntPrice || 1000,
+                    longTopPrice: legacySetting?.longTopPrice || 1100
+                } as any;
+            }
+
+            if (sugarcaneType === 1) pricePerUnit = priceConfig!.freshPrice;
+            else if (sugarcaneType === 2) pricePerUnit = priceConfig!.burntPrice;
+            else if (sugarcaneType === 3) pricePerUnit = priceConfig!.longTopPrice;
+        }
+
+        // Recalculate amounts
+        const totalAmount = weight * pricePerUnit;
+        const netAmount = totalAmount - (fuelCost || 0);
+
+        // Update bill
+        bill.ownerName = ownerName;
+        bill.quotaNumber = quotaNumber;
+        bill.licensePlate = licensePlate;
+        bill.date = new Date(date);
+        bill.sugarcaneType = sugarcaneType;
+        bill.weight = weight;
+        bill.fuelCost = fuelCost || 0;
+        bill.pricePerUnit = pricePerUnit;
+        bill.totalAmount = totalAmount;
+        bill.netAmount = netAmount;
+
+        const updatedBill = await bill.save();
+
+        // Sync to Excel (Optional: Updating Excel is complex, for now we might skip or append correction. 
+        // Instructions didn't specify Excel update strictly, but let's re-sync logic if needed. 
+        // For simplicity and safety against corrupting excel, we'll log it.)
+        // await syncToExcel(updatedBill); // Be careful with overwriting rows in Excel without ID mapping
+
+        await logActivity(req, 'UPDATE_BILL', `Updated bill ${bill.billNumber}`);
+
+        res.json(updatedBill);
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating bill', error });
+    }
+});
+
 
 // Delete bill (Root only)
 app.delete('/api/bills/:id', authenticateToken, authorizeRole(['root']), async (req, res) => {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Hash, User, Calendar, Leaf, Flame, Scale, Droplet, Save, Truck } from 'lucide-react';
+import { Hash, User, Calendar, Leaf, Flame, Scale, Droplet, Save, Truck, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import CustomDropdown from './CustomDropdown';
 
@@ -23,7 +23,14 @@ interface Farmer {
     licensePlates?: string[];
 }
 
-const BillForm: React.FC<{ onBillRecorded: () => void }> = ({ onBillRecorded }) => {
+interface BillFormProps {
+    onBillRecorded: () => void;
+    initialData?: any;
+    isEditMode?: boolean;
+    onCancel?: () => void;
+}
+
+const BillForm: React.FC<BillFormProps> = ({ onBillRecorded, initialData, isEditMode = false, onCancel }) => {
     const [formData, setFormData] = useState<BillFormData>({
         billNumber: '',
         ownerName: '',
@@ -66,10 +73,37 @@ const BillForm: React.FC<{ onBillRecorded: () => void }> = ({ onBillRecorded }) 
         fetchData();
     }, []);
 
-    // Check for duplicate bill number
+    // Initialize form data if checking (Edit Mode)
+    useEffect(() => {
+        if (isEditMode && initialData) {
+            setFormData({
+                billNumber: initialData.billNumber,
+                ownerName: initialData.ownerName,
+                date: new Date(initialData.date).toISOString().split('T')[0],
+                sugarcaneType: initialData.sugarcaneType,
+                weight: initialData.weight.toString(),
+                fuelCost: initialData.fuelCost ? initialData.fuelCost.toString() : '',
+                quotaNumber: initialData.quotaNumber || '',
+                price: initialData.pricePerUnit.toString(),
+                licensePlate: initialData.licensePlate || '',
+            });
+            // If price differs from standard, maybe set ManualPrice? 
+            // For now, let's leave isManualPrice false unless we want to force it.
+            // Or better, if we edit, we default to re-calculating unless user checks manual.
+            // But if modifying an old bill, maybe we want to keep the old price?
+        }
+    }, [isEditMode, initialData]);
+
+    // Check for duplicate bill number (Skip if editing and bill number hasn't changed)
     useEffect(() => {
         const checkDuplicate = async () => {
             if (!formData.billNumber) {
+                setIsDuplicate(false);
+                return;
+            }
+
+            // Skip check if editing and bill number is same as initial
+            if (isEditMode && initialData && formData.billNumber === initialData.billNumber) {
                 setIsDuplicate(false);
                 return;
             }
@@ -87,7 +121,7 @@ const BillForm: React.FC<{ onBillRecorded: () => void }> = ({ onBillRecorded }) 
 
         const timeoutId = setTimeout(checkDuplicate, 500);
         return () => clearTimeout(timeoutId);
-    }, [formData.billNumber]);
+    }, [formData.billNumber, isEditMode, initialData]);
 
     // Fetch price when date or type changes (if not manual)
     useEffect(() => {
@@ -157,23 +191,31 @@ const BillForm: React.FC<{ onBillRecorded: () => void }> = ({ onBillRecorded }) 
                 manualPrice: isManualPrice ? Number(formData.price) : undefined,
             };
 
-            await axios.post('/api/bills', payload);
-            toast.success('บันทึกข้อมูลสำเร็จ!');
+            if (isEditMode && initialData) {
+                await axios.put(`/api/bills/${initialData._id}`, payload);
+                toast.success('แก้ไขข้อมูลสำเร็จ!');
+            } else {
+                await axios.post('/api/bills', payload);
+                toast.success('บันทึกข้อมูลสำเร็จ!');
+            }
+
             onBillRecorded();
 
-            setFormData({
-                billNumber: '',
-                ownerName: '',
-                date: new Date().toISOString().split('T')[0],
-                sugarcaneType: 1,
-                weight: '',
-                fuelCost: '',
-                quotaNumber: '',
-                price: '',
-                licensePlate: '',
-            });
-            setFarmerLicensePlates([]);
-            setIsManualPrice(false);
+            if (!isEditMode) {
+                setFormData({
+                    billNumber: '',
+                    ownerName: '',
+                    date: new Date().toISOString().split('T')[0],
+                    sugarcaneType: 1,
+                    weight: '',
+                    fuelCost: '',
+                    quotaNumber: '',
+                    price: '',
+                    licensePlate: '',
+                });
+                setFarmerLicensePlates([]);
+                setIsManualPrice(false);
+            }
         } catch (error: any) {
             console.error('Error submitting bill:', error);
             const errorMessage = error.response?.data?.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล';
@@ -182,10 +224,17 @@ const BillForm: React.FC<{ onBillRecorded: () => void }> = ({ onBillRecorded }) 
     };
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-                <Save size={20} className="text-gray-500" />
-                <h2 className="text-lg font-semibold text-gray-700">บันทึกบิลใหม่</h2>
+        <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden ${isEditMode ? 'h-full' : ''}`}>
+            <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Save size={20} className="text-gray-500" />
+                    <h2 className="text-lg font-semibold text-gray-700">{isEditMode ? 'แก้ไขบิล' : 'บันทึกบิลใหม่'}</h2>
+                </div>
+                {isEditMode && onCancel && (
+                    <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
+                        <X size={20} />
+                    </button>
+                )}
             </div>
 
             <div className="p-6">
@@ -455,12 +504,21 @@ const BillForm: React.FC<{ onBillRecorded: () => void }> = ({ onBillRecorded }) 
                         </div>
                     </div>
 
-                    <div className="pt-4">
+                    <div className="pt-4 flex gap-3">
+                        {isEditMode && onCancel && (
+                            <button
+                                type="button"
+                                onClick={onCancel}
+                                className="w-1/3 py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                            >
+                                ยกเลิก
+                            </button>
+                        )}
                         <button
                             type="submit"
-                            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#107c55] hover:bg-[#0d6b49] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                            className="flex-1 flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#107c55] hover:bg-[#0d6b49] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
                         >
-                            บันทึกข้อมูล
+                            {isEditMode ? 'บันทึกการแก้ไข' : 'บันทึกข้อมูล'}
                         </button>
                     </div>
                 </form>
