@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Leaf, Flame, Search, Calendar, Filter, X, Download, FileJson, FileSpreadsheet, FileText, Share2, Copy, Check } from 'lucide-react';
+import { Leaf, Flame, Search, Calendar, Filter, X, Download, FileJson, FileSpreadsheet, FileText, Share2, Copy, Check, Pencil, Trash2 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import toast from 'react-hot-toast';
+import { useAuth } from '../contexts/AuthContext';
+import BillForm from './BillForm';
 
 interface Bill {
     _id: string;
@@ -18,6 +20,7 @@ interface Bill {
     totalAmount: number;
     netAmount: number;
     quotaNumber?: string;
+    licensePlate?: string; // Add this if not present
 }
 
 interface BillListProps {
@@ -26,6 +29,7 @@ interface BillListProps {
 }
 
 const BillList: React.FC<BillListProps> = ({ isSharedView = false, refreshTrigger = 0 }) => {
+    const { user } = useAuth();
     const [bills, setBills] = useState<Bill[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -42,18 +46,21 @@ const BillList: React.FC<BillListProps> = ({ isSharedView = false, refreshTrigge
     const [generatedLink, setGeneratedLink] = useState('');
     const [isCopied, setIsCopied] = useState(false);
 
-    useEffect(() => {
-        const fetchBills = async () => {
-            try {
-                const response = await axios.get<Bill[]>('/api/bills');
-                setBills(response.data);
-            } catch (error) {
-                console.error('Error fetching bills:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
+    // Edit State
+    const [editingBill, setEditingBill] = useState<Bill | null>(null);
 
+    const fetchBills = async () => {
+        try {
+            const response = await axios.get<Bill[]>('/api/bills');
+            setBills(response.data);
+        } catch (error) {
+            console.error('Error fetching bills:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchBills();
     }, [refreshTrigger]);
 
@@ -219,8 +226,6 @@ const BillList: React.FC<BillListProps> = ({ isSharedView = false, refreshTrigge
 
         doc.save(`bills_${new Date().toISOString().split('T')[0]}.pdf`);
         toast.success('ดาวน์โหลด PDF สำเร็จ (หมายเหตุ: ภาษาไทยอาจแสดงผลไม่ถูกต้อง)');
-        doc.save(`bills_${new Date().toISOString().split('T')[0]}.pdf`);
-        toast.success('ดาวน์โหลด PDF สำเร็จ (หมายเหตุ: ภาษาไทยอาจแสดงผลไม่ถูกต้อง)');
     };
 
     // Share Handlers
@@ -242,6 +247,29 @@ const BillList: React.FC<BillListProps> = ({ isSharedView = false, refreshTrigge
         setIsCopied(true);
         toast.success('คัดลอกลิงก์แล้ว');
         setTimeout(() => setIsCopied(false), 2000);
+    };
+
+    // Handle Delete
+    const handleDelete = async (billId: string) => {
+        if (!window.confirm('คุณแน่ใจหรือไม่ที่จะลบบิลนี้? การกระทำนี้ไม่สามารถย้อนกลับได้')) {
+            return;
+        }
+
+        try {
+            await axios.delete(`/api/bills/${billId}`);
+            toast.success('ลบบิลสำเร็จ');
+            fetchBills();
+        } catch (error) {
+            console.error('Error deleting bill:', error);
+            toast.error('เกิดข้อผิดพลาดในการลบบิล');
+        }
+    };
+
+    // Handle Edit (Update List after Save)
+    const handleEditSuccess = () => {
+        setEditingBill(null);
+        fetchBills();
+        // toast.success handled in BillForm
     };
 
     // Pagination State
@@ -316,7 +344,7 @@ const BillList: React.FC<BillListProps> = ({ isSharedView = false, refreshTrigge
     );
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative">
             <div className="bg-gray-50 px-6 py-4 border-b border-gray-100">
                 <h2 className="text-lg font-semibold text-gray-700">รายการบิลทั้งหมด</h2>
             </div>
@@ -380,8 +408,6 @@ const BillList: React.FC<BillListProps> = ({ isSharedView = false, refreshTrigge
                         </div>
                     </div>
 
-                    {/* Clear Button */}
-                    {/* Clear Button */}
                     {/* Clear Button */}
                     <button
                         onClick={clearFilters}
@@ -539,6 +565,9 @@ const BillList: React.FC<BillListProps> = ({ isSharedView = false, refreshTrigge
                             <th scope="col" className="px-6 py-3 text-right">รวมเงิน</th>
                             <th scope="col" className="px-6 py-3 text-right">หักน้ำมัน</th>
                             <th scope="col" className="px-6 py-3 text-right">สุทธิ</th>
+                            {user?.role === 'root' && (
+                                <th scope="col" className="px-6 py-3 text-center">จัดการ</th>
+                            )}
                         </tr>
                     </thead>
                     <tbody>
@@ -580,11 +609,31 @@ const BillList: React.FC<BillListProps> = ({ isSharedView = false, refreshTrigge
                                 <td className="px-6 py-4 text-right font-bold text-green-700">
                                     {bill.netAmount?.toLocaleString() || '-'}
                                 </td>
+                                {user?.role === 'root' && (
+                                    <td className="px-6 py-4 text-center">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <button
+                                                onClick={() => setEditingBill(bill)}
+                                                className="p-1 text-gray-500 hover:text-blue-600 transition-colors"
+                                                title="แก้ไข"
+                                            >
+                                                <Pencil size={18} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(bill._id)}
+                                                className="p-1 text-gray-500 hover:text-red-600 transition-colors"
+                                                title="ลบ"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                )}
                             </tr>
                         ))}
                         {filteredBills.length === 0 && (
                             <tr>
-                                <td colSpan={10} className="px-6 py-10 text-center text-gray-400">
+                                <td colSpan={user?.role === 'root' ? 11 : 10} className="px-6 py-10 text-center text-gray-400">
                                     ไม่พบข้อมูลที่ค้นหา
                                 </td>
                             </tr>
@@ -595,6 +644,20 @@ const BillList: React.FC<BillListProps> = ({ isSharedView = false, refreshTrigge
 
             {/* Bottom Pagination */}
             <PaginationControls />
+
+            {/* Edit Modal */}
+            {editingBill && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <BillForm
+                            onBillRecorded={handleEditSuccess}
+                            initialData={editingBill}
+                            isEditMode={true}
+                            onCancel={() => setEditingBill(null)}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
