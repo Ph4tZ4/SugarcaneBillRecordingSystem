@@ -110,7 +110,7 @@ const BillForm: React.FC<BillFormProps> = ({ onBillRecorded, initialData, isEdit
 
             setIsChecking(true);
             try {
-                const response = await axios.get(`/api/bills/check-duplicate/${formData.billNumber}`);
+                const response = await axios.get(`/api/bills/check-duplicate/${encodeURIComponent(formData.billNumber)}`);
                 setIsDuplicate(response.data.exists);
             } catch (error) {
                 console.error('Error checking duplicate:', error);
@@ -122,6 +122,62 @@ const BillForm: React.FC<BillFormProps> = ({ onBillRecorded, initialData, isEdit
         const timeoutId = setTimeout(checkDuplicate, 500);
         return () => clearTimeout(timeoutId);
     }, [formData.billNumber, isEditMode, initialData]);
+
+    // Check Sheet Data (Auto-fill)
+    const handleBillBlur = async () => {
+        if (!formData.billNumber || isEditMode) return;
+
+        try {
+            const response = await axios.get(`/api/sheet/check-bill/${encodeURIComponent(formData.billNumber)}`);
+            if (response.data.status === 'success') {
+                const sheetData = response.data.data;
+                console.log('Sheet Data:', sheetData); // Debug log
+
+                // Extract data from API response (using correct keys from Google Apps Script)
+                const quota = sheetData.quotaNumber || '';
+                const license = sheetData.licensePlate || '';
+                const rawType = sheetData.sugarcaneType || '';
+                const weightVal = sheetData.weight || '';
+                const fuelVal = sheetData.fuelCost || '';
+
+                // Parse sugarcane type (1=Fresh, 2=Burnt, 3=Long Top)
+                let type = formData.sugarcaneType; // Keep current if not found
+                if (rawType) {
+                    const typeStr = String(rawType).trim();
+                    if (typeStr === '1' || typeStr.includes('สด')) type = 1;
+                    else if (typeStr === '2' || typeStr.includes('ไฟ')) type = 2;
+                    else if (typeStr === '3' || typeStr.includes('ยาว')) type = 3;
+                }
+
+                // Auto-add quota if not in system
+                if (quota && !quotas.includes(quota)) {
+                    try {
+                        await axios.put('/api/settings', {
+                            quotas: [...quotas, quota]
+                        });
+                        setQuotas(prev => [...prev, quota]);
+                        toast.success(`เพิ่มเลขโควตา ${quota} เรียบร้อย`);
+                    } catch (error) {
+                        console.error('Error adding quota:', error);
+                    }
+                }
+
+                setFormData(prev => ({
+                    ...prev,
+                    quotaNumber: quota || prev.quotaNumber,
+                    licensePlate: license || prev.licensePlate,
+                    sugarcaneType: type,
+                    weight: weightVal ? String(weightVal) : prev.weight,
+                    fuelCost: fuelVal ? String(fuelVal) : prev.fuelCost,
+                }));
+
+                toast.success('พบข้อมูลจาก Sheet: ดึงข้อมูลเรียบร้อย');
+            }
+        } catch (error) {
+            console.error('Error checking sheet:', error);
+            // Silent error or toast? Silent is better to not annoy if offline/error
+        }
+    };
 
     // Fetch price when date or type changes (if not manual)
     useEffect(() => {
@@ -172,7 +228,7 @@ const BillForm: React.FC<BillFormProps> = ({ onBillRecorded, initialData, isEdit
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!formData.billNumber || !formData.ownerName || !formData.date || !formData.weight || !formData.quotaNumber) {
+        if (!formData.billNumber || !formData.date || !formData.weight || !formData.quotaNumber) {
             toast.error('กรุณากรอกข้อมูลให้ครบถ้วน');
             return;
         }
@@ -261,6 +317,7 @@ const BillForm: React.FC<BillFormProps> = ({ onBillRecorded, initialData, isEdit
                                         : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
                                         }`}
                                     required
+                                    onBlur={handleBillBlur}
                                 />
                                 {isChecking && (
                                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
@@ -305,7 +362,6 @@ const BillForm: React.FC<BillFormProps> = ({ onBillRecorded, initialData, isEdit
                                 onBlur={() => setTimeout(() => setShowFarmerSuggestions(false), 200)}
                                 placeholder="ชื่อ-นามสกุล"
                                 className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 sm:text-sm transition-colors"
-                                required
                                 autoComplete="off"
                             />
                         </div>

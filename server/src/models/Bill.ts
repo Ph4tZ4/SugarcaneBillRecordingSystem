@@ -17,7 +17,7 @@ export interface IBill extends Document {
 const BillSchema: Schema = new Schema({
     billNumber: { type: String, required: true, unique: true },
     quotaNumber: { type: String, required: false },
-    ownerName: { type: String, required: true },
+    ownerName: { type: String, required: false },
     licensePlate: { type: String, required: false },
     date: { type: Date, required: true },
     sugarcaneType: { type: Number, required: true, enum: [1, 2, 3] },

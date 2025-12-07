@@ -17,6 +17,7 @@ import { PriceConfig } from './models/PriceConfig';
 import { User } from './models/User';
 import { ActivityLog } from './models/ActivityLog';
 import { ShareLink } from './models/ShareLink';
+import sheetRoutes from './routes/sheet';
 
 dotenv.config();
 
@@ -42,6 +43,7 @@ app.use(cors({
     credentials: true
 }));
 app.use(bodyParser.json()); // Replaced express.json() with bodyParser.json() as per instruction
+app.use('/api/sheet', sheetRoutes);
 
 // Connect to MongoDB
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/sugarcane-db';
@@ -601,8 +603,8 @@ app.post('/api/bills', authenticateToken, authorizeRole(['admin', 'root']), asyn
 
         await newBill.save();
 
-        // Update Farmer's license plates if provided
-        if (req.body.licensePlate) {
+        // Update Farmer's license plates if provided (only if ownerName is not empty)
+        if (req.body.licensePlate && ownerName && ownerName.trim() !== '') {
             const farmer = await Farmer.findOne({ name: ownerName });
             if (farmer) {
                 if (!farmer.licensePlates.includes(req.body.licensePlate)) {
